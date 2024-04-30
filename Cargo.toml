@@ -1,0 +1,17 @@
+[package]
+name = "audio-vst"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+raw-window-handle = "0.6.1"
+# rodio = "0.17.3"
+vst = { version = "0.4.0", features = ["disable_deprecation_warning"] }
+winit = "0.29.15"
+cpal = "0.15.3"
+anyhow = "1.0.82"
+hound = "3.5.1"
+minimp3 = "0.5.1"
+rodio = "0.17.3"
