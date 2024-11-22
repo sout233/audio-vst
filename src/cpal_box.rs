@@ -37,25 +37,13 @@ pub fn play_test(data: Vec<f32>) -> anyhow::Result<()> {
 pub fn run<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    data: Vec<f32>,
+    wav_data: Vec<f32>,
 ) -> Result<(), anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
 {
     let sample_rate = config.sample_rate.0 as f32;
     let channels = config.channels as usize;
-
-    // Produce a sinusoid of maximum amplitude.
-    let mut sample_clock = 0f32;
-
-    let wav_data = decoder::get_mono();
-    // println!("{:?}", wav);
-
-    let next_value = move || {
-        sample_clock = (sample_clock + 1.0) % sample_rate;
-        // (sample_clock * 440.0 * 2.0 * std::f32::consts::PI / sample_rate).sin()
-        // wav.get(sample_clock as usize).unwrap().to_owned()
-    };
 
     let mut sample_index = 0;
 
@@ -72,7 +60,7 @@ where
     let stream = device.build_output_stream(config, next_value, err_fn, None)?;
     stream.play()?;
 
-    std::thread::sleep(std::time::Duration::from_millis(5000));
+    std::thread::sleep(std::time::Duration::from_millis(20000));
 
     Ok(())
 }

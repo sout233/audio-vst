@@ -46,12 +46,20 @@ pub mod decoder {
     }
 
     pub fn to_mono(stereo_wav: (Vec<f32>, Vec<f32>)) -> Vec<f32> {
-        let mut mono_channel_data = Vec::new();
-        
-        for i in 0..stereo_wav.0.len() {
-            mono_channel_data.push((stereo_wav.0[i] + stereo_wav.1[i]) / 2.0);
+        let vec1 = stereo_wav.0;
+        let vec2 = stereo_wav.1;
+    
+        let mut result = Vec::with_capacity(vec1.len() + vec2.len());
+    
+        for (a, b) in vec1.iter().zip(vec2.iter()) {
+            result.push(*a);
+            result.push(*b);
         }
+    
+        // 如果vec1或vec2较长，将剩余的元素添加到结果中
+        result.extend(vec1.iter().skip(vec2.len()));
+        result.extend(vec2.iter().skip(vec1.len()));
 
-        mono_channel_data
+        result
     }
 }

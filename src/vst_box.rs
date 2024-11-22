@@ -1,6 +1,8 @@
 use std::mem::transmute;
 use std::os::raw::c_void;
+use std::os::windows::io::HandleOrNull;
 use std::path::{self, Path};
+use std::ptr::null;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, thread};
@@ -11,7 +13,7 @@ use vst::host::{Host, PluginInstance, PluginLoader};
 use vst::plugin::Plugin;
 use winit::dpi::LogicalSize;
 use winit::event::Event;
-use winit::event_loop::{EventLoop, EventLoopProxy};
+use winit::event_loop::{self, EventLoop, EventLoopProxy};
 use winit::window::WindowBuilder;
 
 use crate::wav_decoder;
@@ -31,9 +33,9 @@ impl Host for HostHandle {
 }
 
 pub struct Box {
-    host: Arc<Mutex<HostHandle>>,
-    plugin: PluginInstance,
-    loader: PluginLoader<HostHandle>,
+    pub host: Arc<Mutex<HostHandle>>,
+    pub plugin: PluginInstance,
+    pub loader: PluginLoader<HostHandle>,
 }
 
 impl Box {
@@ -92,16 +94,12 @@ impl Box {
         println!("Initialized instance!");
     }
 
-    pub fn show_editor(&mut self) -> EventLoopProxy<(Vec<f32>, Vec<f32>)>  {
+    pub fn show_editor(&mut self,event_loop: EventLoop<(Vec<f32>, Vec<f32>)> ) {
         let plugin = &mut self.plugin;
 
         let mut editor_view = plugin.get_editor().unwrap();
 
         let (window_width, window_height) = editor_view.size();
-
-        let event_loop = EventLoop::<(Vec<f32>,Vec<f32>)>::with_user_event().unwrap();
-
-        let event_loop_proxy: EventLoopProxy<(Vec<f32>, Vec<f32>)> = event_loop.create_proxy();
 
         let plugin_name = plugin.get_info().name.clone();
 
@@ -120,51 +118,9 @@ impl Box {
         };
 
         unsafe {
-            let mut handle = 0x000C068C as *mut c_void;
+            // let mut handle = 0x000C068C as *mut c_void;
             editor_view.open(transmute(handle_ptr));
         }
-
-        let proxy_clone = event_loop_proxy.clone();
-
-        let (mut left_wav_data, mut right_wav_data) = wav_decoder::decoder::get_stereo();
-        let mut block_pos = 0;
-
-        thread::spawn(move || {
-            let start = Instant::now();
-            let mut t = 0;
-
-            loop {
-                let mut left_samples: Vec<f32> = vec![0f32; BLOCK_SIZE];
-                let mut right_samples: Vec<f32> = vec![0f32; BLOCK_SIZE];
-
-                for i in 0..BLOCK_SIZE {
-                    let t_sec = (t + i) as f64 / SAMPLE_RATE as f64;
-                    // samples[i] = f64::sin(t_sec * 2.0 * std::f64::consts::PI * 440.0) as f32 / 10.0;
-                    left_samples[i] = *left_wav_data
-                        .get(i + block_pos * BLOCK_SIZE)
-                        .unwrap_or(&0.0);
-                }
-
-                for i in 0..BLOCK_SIZE {
-                    right_samples[i] = *right_wav_data
-                        .get(i + block_pos * BLOCK_SIZE)
-                        .unwrap_or(&0.0);
-                }
-
-                block_pos += 1;
-
-                let _ = proxy_clone.send_event((left_samples,right_samples));
-
-                t += BLOCK_SIZE;
-
-                let wait_until =
-                    start + Duration::from_millis(t as u64 * 1000 / SAMPLE_RATE as u64);
-                let now = Instant::now();
-                if wait_until > now {
-                    thread::sleep(wait_until - now);
-                }
-            }
-        });
 
         let _ = event_loop.run(move |event, _| {
             match event {
@@ -176,7 +132,7 @@ impl Box {
                 Event::UserEvent(sample) => {
                     static EMPTY_INPUTS: [f32; BLOCK_SIZE] = [0f32; BLOCK_SIZE];
 
-                    let (left_samples,right_samples) = sample;
+                    let (left_samples, right_samples) = sample;
 
                     let inputs = [
                         left_samples.as_ptr(),
@@ -224,7 +180,5 @@ impl Box {
                 Event::MemoryWarning => (),
             }
         });
-
-        event_loop_proxy.clone()
     }
 }
